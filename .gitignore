@@ -2,8 +2,6 @@
 # Coloca este arquivo na raiz do projeto, do lado do App.tsx,
 # ANTES de rodar "git add .".
 
-*/node_modules/
-*/node_modules/
 .expo/
 dist/
 web-build/

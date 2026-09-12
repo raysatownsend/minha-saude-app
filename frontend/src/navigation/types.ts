@@ -1,11 +1,3 @@
-// src/navigation/types.ts
-//
-// Lista de telas de cada navegador, com o tipo dos parâmetros que
-// cada uma recebe ("undefined" = não recebe nenhum). Isso é o que
-// permite o TypeScript avisar se você escrever
-// navigation.navigate('Cadsatro') com erro de digitação, ou passar
-// um parâmetro que a tela não espera.
-
 export type RootStackParamList = {
   Login: undefined;
   Cadastro: undefined;
@@ -15,7 +7,12 @@ export type RootStackParamList = {
   Medicos: undefined;
   Senhas: undefined;
   ExcluirConta: undefined;
-  PublicaBloqueada: undefined;
+  // "codigo" vem do próprio link/QR code (ex: .../s/9f27bd) — é o
+  // que o deep linking preenche sozinho quando alguém abre o link.
+  // Por enquanto a tela não faz nada com ele (não tem backend pra
+  // buscar "de quem" é esse código); é o encaixe pronto pra quando
+  // existir.
+  PublicaBloqueada: { codigo?: string };
   PublicaLiberada: undefined;
   // "item" decide qual card o DetalheClinico mostra — string fixa
   // em vez de passar o ícone/valor direto, porque parâmetro de
