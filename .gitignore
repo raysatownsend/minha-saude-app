@@ -1,0 +1,24 @@
+# .gitignore
+# Coloca este arquivo na raiz do projeto, do lado do App.tsx,
+# ANTES de rodar "git add .".
+
+/frontend/node_modules/
+/backend/node_modules/
+.expo/
+dist/
+web-build/
+npm-debug.*
+
+# arquivos de assinatura/build (iOS e Android)
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# sistema
+.DS_Store
+*.orig.*
+
+# variáveis de ambiente (nunca sobem pro Git — podem ter senhas/chaves)
+.env*.local
