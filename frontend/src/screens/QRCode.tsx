@@ -1,5 +1,5 @@
 import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { Link2, Lock, Share2, Trash2 } from 'lucide-react-native';
 import AppButton from '../components/AppButton';
@@ -8,6 +8,21 @@ import { colors } from '../../colors';
 const LINK = 'minhasaude.app/s/9f27bd';
 
 export default function QrCodeScreen() {
+  // Share.share() já vem com o React Native, sem precisar instalar
+  // nada. Ela abre o menu de compartilhamento nativo do celular — o
+  // WhatsApp aparece ali sozinho, junto com Mensagens, E-mail etc.,
+  // se estiver instalado. É "async" porque abrir esse menu e esperar
+  // a pessoa escolher uma opção leva um tempo indeterminado.
+  async function compartilhar() {
+    try {
+      await Share.share({
+        message: `Estas são minhas informações de saúde para emergências: https://${LINK}`,
+      });
+    } catch (erro) {
+      console.log('Erro ao compartilhar:', erro);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -42,7 +57,7 @@ export default function QrCodeScreen() {
             title="Compartilhar"
             icon={Share2}
             variant="success"
-            onPress={() => {}}
+            onPress={compartilhar}
             style={styles.botaoMetade}
           />
           <AppButton
