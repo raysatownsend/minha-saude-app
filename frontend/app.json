@@ -14,7 +14,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#70D0E0"
-      }
+      },
+      "package": "com.ray_townsend.minhasaude"
     },
     "web": {
       "bundler": "metro"
@@ -24,10 +25,22 @@
       [
         "expo-splash-screen",
         {
-        "resizeMode": "contain",
-        "backgroundColor": "#FFFFFF"
+          "image": "./assets/adaptive-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "da6022b5-9f7e-4882-9087-8fdb3a9a9cd0"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/da6022b5-9f7e-4882-9087-8fdb3a9a9cd0"
+    }
   }
 }
