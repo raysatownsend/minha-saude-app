@@ -16,6 +16,7 @@ import { CirurgiaController } from './controllers/CirurgiaController';
 import { DoencasController } from './controllers/DoencasController';
 import { MedicamentosController } from './controllers/MedicamentosController';
 import { MedicosController } from './controllers/MedicosController';
+import { PublicoController } from './controllers/PublicoController';
 
 import { UsuariosRepository } from './repositories/UsuariosRepository';
 import { AlergiaRepository } from './repositories/AlergiaRepository';
@@ -66,6 +67,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
         DoencasController,
         MedicamentosController,
         MedicosController,
+        PublicoController,
     ],
     providers: [
         AlergiaRepository,

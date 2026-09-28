@@ -8,11 +8,13 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import type { AxiosError } from 'axios';
 import { Lock, QrCode } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import Input from '../components/Input';
 import AppButton from '../components/AppButton';
 import { colors } from '../../colors';
+import { alterarSenha, definirSenhaPublica } from '../repositories/usuarioRepositorio';
 
 // caracteres sem O/0 e I/1 — evita confundir quem for digitar o
 // código lido em voz alta numa emergência
@@ -26,12 +28,87 @@ function gerarCodigo(tamanho = 5) {
   return codigo;
 }
 
+function mensagemDeErro(erro: unknown, padrao: string): string {
+  const status = (erro as AxiosError)?.response?.status;
+  const corpo = (erro as AxiosError)?.response?.data as { message?: string | string[] } | undefined;
+  if (status === 400 || status === 401) {
+    const msg = corpo?.message;
+    if (typeof msg === 'string') return msg;
+    if (Array.isArray(msg) && msg.length > 0) return msg[0];
+  }
+  return padrao;
+}
+
 export default function Senhas() {
   const navigation = useNavigation();
+
+  // --- senha do aplicativo ---
   const [senhaAtual, setSenhaAtual] = useState('');
   const [novaSenha, setNovaSenha] = useState('');
   const [confirmarNovaSenha, setConfirmarNovaSenha] = useState('');
-  const [senhaPublica, setSenhaPublica] = useState('4K7T9');
+  const [erroSenhaApp, setErroSenhaApp] = useState('');
+  const [sucessoSenhaApp, setSucessoSenhaApp] = useState(false);
+  const [salvandoSenhaApp, setSalvandoSenhaApp] = useState(false);
+
+  async function atualizarSenha() {
+    setSucessoSenhaApp(false);
+    if (!senhaAtual || !novaSenha || !confirmarNovaSenha) {
+      setErroSenhaApp('Preencha os três campos.');
+      return;
+    }
+    if (novaSenha !== confirmarNovaSenha) {
+      setErroSenhaApp('A nova senha e a confirmação não coincidem.');
+      return;
+    }
+    if (novaSenha.length < 6) {
+      setErroSenhaApp('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+
+    setErroSenhaApp('');
+    setSalvandoSenhaApp(true);
+    try {
+      await alterarSenha({ senhaAtual, novaSenha });
+      setSenhaAtual('');
+      setNovaSenha('');
+      setConfirmarNovaSenha('');
+      setSucessoSenhaApp(true);
+    } catch (erro) {
+      setErroSenhaApp(mensagemDeErro(erro, 'Não foi possível atualizar a senha.'));
+    } finally {
+      setSalvandoSenhaApp(false);
+    }
+  }
+
+  // --- senha pública do QR Code ---
+  const [senhaPublica, setSenhaPublica] = useState(() => gerarCodigo());
+  const [senhaLoginConfirmacao, setSenhaLoginConfirmacao] = useState('');
+  const [erroSenhaPublica, setErroSenhaPublica] = useState('');
+  const [sucessoSenhaPublica, setSucessoSenhaPublica] = useState(false);
+  const [salvandoSenhaPublica, setSalvandoSenhaPublica] = useState(false);
+
+  async function salvarSenhaPublica() {
+    setSucessoSenhaPublica(false);
+    if (!senhaLoginConfirmacao) {
+      setErroSenhaPublica('Confirme com sua senha de login para salvar.');
+      return;
+    }
+
+    setErroSenhaPublica('');
+    setSalvandoSenhaPublica(true);
+    try {
+      await definirSenhaPublica({
+        senhaPublica,
+        senhaLogin: senhaLoginConfirmacao,
+      });
+      setSenhaLoginConfirmacao('');
+      setSucessoSenhaPublica(true);
+    } catch (erro) {
+      setErroSenhaPublica(mensagemDeErro(erro, 'Não foi possível salvar a senha pública.'));
+    } finally {
+      setSalvandoSenhaPublica(false);
+    }
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -52,7 +129,7 @@ export default function Senhas() {
         />
         <Input
           label="NOVA SENHA"
-          placeholder="Mínimo 8 caracteres"
+          placeholder="Mínimo 6 caracteres"
           icon={Lock}
           value={novaSenha}
           onChangeText={setNovaSenha}
@@ -67,9 +144,13 @@ export default function Senhas() {
           secureTextEntry
         />
 
+        {erroSenhaApp.length > 0 && <Text style={styles.erro}>{erroSenhaApp}</Text>}
+        {sucessoSenhaApp && <Text style={styles.sucesso}>Senha atualizada.</Text>}
+
         <AppButton
-          title="Atualizar senha"
-          onPress={() => {}}
+          title={salvandoSenhaApp ? 'Salvando...' : 'Atualizar senha'}
+          onPress={atualizarSenha}
+          disabled={salvandoSenhaApp}
           style={styles.botaoAtualizar}
         />
 
@@ -92,11 +173,27 @@ export default function Senhas() {
           </View>
         </View>
 
+        <Input
+          label="CONFIRME COM SUA SENHA DE LOGIN"
+          icon={Lock}
+          value={senhaLoginConfirmacao}
+          onChangeText={setSenhaLoginConfirmacao}
+          secureTextEntry
+        />
+
+        {erroSenhaPublica.length > 0 && <Text style={styles.erro}>{erroSenhaPublica}</Text>}
+        {sucessoSenhaPublica && (
+          <Text style={styles.sucesso}>
+            Senha pública salva — o QR Code já está pronto pra uso.
+          </Text>
+        )}
+
         <AppButton
-          title="Salvar senha pública"
+          title={salvandoSenhaPublica ? 'Salvando...' : 'Salvar senha pública'}
           icon={QrCode}
           variant="success"
-          onPress={() => {}}
+          onPress={salvarSenhaPublica}
+          disabled={salvandoSenhaPublica}
         />
       </ScrollView>
     </SafeAreaView>
@@ -122,11 +219,21 @@ const styles = StyleSheet.create({
   botaoAtualizar: {
     marginTop: 8,
   },
+  erro: {
+    color: colors.danger,
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  sucesso: {
+    color: colors.success,
+    fontSize: 13,
+    marginBottom: 12,
+  },
   publicaCard: {
     backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   publicaDescricao: {
     fontSize: 14,
