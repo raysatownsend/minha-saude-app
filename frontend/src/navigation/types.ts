@@ -1,7 +1,8 @@
 import type { PerfilPublico } from '../models/perfilPublicoModel';
 
 export type RootStackParamList = {
-  Login: undefined;
+  // params só existem quando o Cadastro termina: aviso de sucesso + e-mail já preenchido
+  Login: { contaCriada?: boolean; username?: string } | undefined;
   Cadastro: undefined;
   RecuperarSenha: undefined;
   MainTabs: undefined;

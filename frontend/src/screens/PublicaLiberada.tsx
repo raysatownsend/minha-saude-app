@@ -1,10 +1,10 @@
 import React from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Ambulance,
   Building2,
-  FileText,
   Phone,
   Pill,
   Stethoscope,
@@ -12,8 +12,14 @@ import {
 } from 'lucide-react-native';
 import InfoRow from '../components/InfoRow';
 import { colors } from '../../colors';
+import type { RootStackParamList } from '../navigation/types';
+
+type Rota = RouteProp<RootStackParamList, 'PublicaLiberada'>;
 
 export default function PublicaLiberada() {
+  const { params } = useRoute<Rota>();
+  const perfil = params.perfil;
+
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -24,51 +30,71 @@ export default function PublicaLiberada() {
           style={styles.header}
         >
           <Text style={styles.ficha}>FICHA DE EMERGÊNCIA</Text>
-          <Text style={styles.nome}>Raysa Townsend Carraro</Text>
+          <Text style={styles.nome}>
+            {perfil.nome} {perfil.sobrenome}
+          </Text>
           <Text style={styles.detalhes}>
-            38 anos · Feminino · Tipo sanguíneo O+
+            {perfil.sexo} · Tipo sanguíneo {perfil.tipoSangue}
           </Text>
         </LinearGradient>
 
         <View style={styles.corpo}>
           <View style={styles.alertaBox}>
             <Text style={styles.alertaTitulo}>ALERGIAS GRAVES</Text>
-            <Text style={styles.alertaTexto}>Dipirona · Penicilina</Text>
+            <Text style={styles.alertaTexto}>
+              {perfil.alergias.length > 0
+                ? perfil.alergias.join(' · ')
+                : 'Nenhuma alergia conhecida'}
+            </Text>
           </View>
 
-          <InfoRow
-            icon={Pill}
-            title="Losartana 50mg"
-            subtitle="1x ao dia · uso contínuo"
-          />
-          <InfoRow
-            icon={Stethoscope}
-            title="Hipertensão e asma"
-            subtitle="Doenças pré-existentes"
-          />
-          <InfoRow
-            icon={Syringe}
-            title="Apendicectomia (2016)"
-            subtitle="Cirurgia prévia"
-          />
-          <InfoRow
-            icon={Building2}
-            title="Unimed · Plano Pleno"
-            subtitle="0123 4567 8901"
-          />
+          {perfil.medicamentos.map((m, i) => (
+            <InfoRow
+              key={`medicamento-${i}`}
+              icon={Pill}
+              title={`${m.medicamento} — ${m.dosagem}`}
+              subtitle="Uso contínuo"
+            />
+          ))}
+
+          {perfil.doencas.length > 0 && (
+            <InfoRow
+              icon={Stethoscope}
+              title={perfil.doencas.join(', ')}
+              subtitle="Doenças pré-existentes"
+            />
+          )}
+
+          {perfil.cirurgias.map((c, i) => (
+            <InfoRow
+              key={`cirurgia-${i}`}
+              icon={Syringe}
+              title={c.data ? `${c.cirurgia} (${c.data})` : c.cirurgia}
+              subtitle="Cirurgia prévia"
+            />
+          ))}
+
+          {perfil.planoSaude ? (
+            <InfoRow icon={Building2} title={perfil.planoSaude} subtitle="Plano de saúde" />
+          ) : null}
+
           <InfoRow
             icon={Ambulance}
-            title="Marcos Carraro"
-            subtitle="Emergência · (51) 99555-1212"
+            title={perfil.contatoEmergencia.nome}
+            subtitle={`Emergência · ${perfil.contatoEmergencia.telefone}`}
             actionIcon={Phone}
             actionColor={colors.danger}
             onAction={() => {}}
           />
-          <InfoRow
-            icon={FileText}
-            title="Exames em PDF"
-            subtitle="4 arquivos disponíveis"
-          />
+
+          {perfil.medicos.map((m, i) => (
+            <InfoRow
+              key={`medico-${i}`}
+              icon={Phone}
+              title={`${m.nome} · ${m.especialidade}`}
+              subtitle={m.telefone}
+            />
+          ))}
         </View>
       </ScrollView>
     </View>

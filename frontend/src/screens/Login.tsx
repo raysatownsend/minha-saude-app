@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AxiosError } from 'axios';
 import { Fingerprint, Lock, Mail } from 'lucide-react-native';
@@ -22,7 +23,8 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function Login() {
   const navigation = useNavigation<Nav>();
-  const [email, setEmail] = useState('');
+  const { params } = useRoute<RouteProp<RootStackParamList, 'Login'>>();
+  const [email, setEmail] = useState(params?.username ?? '');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -81,6 +83,9 @@ export default function Login() {
         secureTextEntry
       />
 
+      {params?.contaCriada && (
+        <Text style={styles.sucesso}>Conta criada! Entre com a senha que você acabou de definir.</Text>
+      )}
       {erro.length > 0 && <Text style={styles.erro}>{erro}</Text>}
 
       <TouchableOpacity onPress={() => navigation.navigate('RecuperarSenha')}>
@@ -144,6 +149,11 @@ const styles = StyleSheet.create({
   },
   erro: {
     color: colors.danger,
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  sucesso: {
+    color: colors.success,
     fontSize: 13,
     marginBottom: 12,
   },

@@ -63,14 +63,12 @@ export class UsuariosRepository {
     }
 
     async removerSenhaPublica(usuarioId: number): Promise<void> {
-        const usuario = await this.usuariosRep.findOne({ where: { id: usuarioId } });
-        if (!usuario) return;
-
-        // undefined (em vez de deletar o registro inteiro) é o suficiente
-        // pra revogar: sem hash salvo, nenhuma senha digitada confere, e
-        // conta + dados clínicos continuam intactos — como o Cenário 1
-        // da story de excluir o link exige.
-        await this.usuariosRep.save({ ...usuario, senhaQrCode: undefined });
+        // NULL (não undefined!): o save() do TypeORM ignora propriedades
+        // undefined, então a versão anterior desse método "revogava" sem
+        // apagar nada — o link continuava funcionando com a senha antiga.
+        // Sem hash salvo, nenhuma senha digitada confere, e conta + dados
+        // clínicos continuam intactos (Cenário 1 da story de excluir o link).
+        await this.usuariosRep.update({ id: usuarioId }, { senhaQrCode: null });
     }
 
     async alterarSenha(usuarioId: number, senhaAtual: string, novaSenha: string): Promise<void> {
