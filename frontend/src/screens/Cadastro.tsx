@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { AxiosError } from 'axios';
 import {
   ArrowLeft,
   Check,
@@ -25,23 +24,12 @@ import AppButton from '../components/AppButton';
 import { colors } from '../../colors';
 import type { RootStackParamList } from '../navigation/types';
 import { cadastrar } from '../repositories/usuarioRepositorio';
+import { mensagemDeErro } from '../services/erroApi';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 const SEXOS = ['Masculino', 'Feminino', 'Outro'] as const;
 const TIPOS_SANGUE = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'] as const;
-
-function mensagemDeErro(erro: unknown, padrao: string): string {
-  const status = (erro as AxiosError)?.response?.status;
-  if (status === 409) return 'Esse email já está cadastrado.';
-  if (status === 400) {
-    const corpo = (erro as AxiosError)?.response?.data as { message?: string | string[] } | undefined;
-    const msg = corpo?.message;
-    if (typeof msg === 'string') return msg;
-    if (Array.isArray(msg) && msg.length > 0) return msg[0];
-  }
-  return padrao;
-}
 
 export default function Cadastro() {
   const navigation = useNavigation<Nav>();
@@ -139,7 +127,11 @@ export default function Cadastro() {
         routes: [{ name: 'Login', params: { contaCriada: true, username: email.trim() } }],
       });
     } catch (erroApi) {
-      setErro(mensagemDeErro(erroApi, 'Não foi possível criar a conta. Tente novamente.'));
+      setErro(
+        mensagemDeErro(erroApi, 'Não foi possível criar a conta. Tente novamente.', {
+          conflito: 'Esse email já está cadastrado.',
+        }),
+      );
     } finally {
       setCarregando(false);
     }

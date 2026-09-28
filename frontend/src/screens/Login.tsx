@@ -18,6 +18,7 @@ import { colors } from '../../colors';
 import type { RootStackParamList } from '../navigation/types';
 import { login } from '../repositories/authRepositorio';
 import { salvarToken } from '../services/tokenStorage';
+import { mensagemDeErro } from '../services/erroApi';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -50,7 +51,7 @@ export default function Login() {
       setErro(
         status === 401
           ? 'Usuário ou senha inválidos.'
-          : 'Não foi possível entrar. Tente novamente.',
+          : mensagemDeErro(erroApi, 'Não foi possível entrar. Tente novamente.'),
       );
     } finally {
       setCarregando(false);

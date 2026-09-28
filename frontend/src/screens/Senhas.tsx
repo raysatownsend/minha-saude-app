@@ -8,13 +8,13 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { AxiosError } from 'axios';
 import { Lock, QrCode } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import Input from '../components/Input';
 import AppButton from '../components/AppButton';
 import { colors } from '../../colors';
 import { alterarSenha, definirSenhaPublica } from '../repositories/usuarioRepositorio';
+import { mensagemDeErro } from '../services/erroApi';
 
 // caracteres sem O/0 e I/1 — evita confundir quem for digitar o
 // código lido em voz alta numa emergência
@@ -26,17 +26,6 @@ function gerarCodigo(tamanho = 5) {
     codigo += CARACTERES[Math.floor(Math.random() * CARACTERES.length)];
   }
   return codigo;
-}
-
-function mensagemDeErro(erro: unknown, padrao: string): string {
-  const status = (erro as AxiosError)?.response?.status;
-  const corpo = (erro as AxiosError)?.response?.data as { message?: string | string[] } | undefined;
-  if (status === 400 || status === 401) {
-    const msg = corpo?.message;
-    if (typeof msg === 'string') return msg;
-    if (Array.isArray(msg) && msg.length > 0) return msg[0];
-  }
-  return padrao;
 }
 
 export default function Senhas() {
