@@ -11,7 +11,7 @@ import {
     Req,
     UseGuards,
 } from '@nestjs/common';
-import { AtualizarUsuarioDto, CriarUsuarioDto } from '../dtos/UsuarioDtos';
+import { AtualizarUsuarioDto, CriarUsuarioDto, DefinirSenhaPublicaDto, AlterarSenhaDto } from '../dtos/UsuarioDtos';
 import { UsuariosRepository } from '../repositories/UsuariosRepository';
 import { JwtAuthGuard, RequisicaoAutenticada } from '../services/auth/JwtAuthGuard';
 
@@ -46,5 +46,35 @@ export class UsuariosController {
     async excluir(@Req() req: RequisicaoAutenticada) {
         const excluida = await this.usuariosRepository.excluirUsuario(req.usuarioId);
         if (!excluida) throw new NotFoundException('Usuário não encontrada.');
+    }
+
+    // Endpoint dedicado (não faz parte do PUT /me de cima) — ver o
+    // comentário no DefinirSenhaPublicaDto sobre o motivo.
+    @Put('me/senha-publica')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @UseGuards(JwtAuthGuard)
+    async definirSenhaPublica(
+        @Req() req: RequisicaoAutenticada,
+        @Body() dados: DefinirSenhaPublicaDto,
+    ) {
+        await this.usuariosRepository.definirSenhaPublica(
+            req.usuarioId,
+            dados.senhaPublica,
+            dados.senhaLogin,
+        );
+    }
+
+    @Delete('me/senha-publica')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @UseGuards(JwtAuthGuard)
+    async removerSenhaPublica(@Req() req: RequisicaoAutenticada) {
+        await this.usuariosRepository.removerSenhaPublica(req.usuarioId);
+    }
+
+    @Put('me/senha')
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @UseGuards(JwtAuthGuard)
+    async alterarSenha(@Req() req: RequisicaoAutenticada, @Body() dados: AlterarSenhaDto) {
+        await this.usuariosRepository.alterarSenha(req.usuarioId, dados.senhaAtual, dados.novaSenha);
     }
 }

@@ -14,7 +14,10 @@ type IconComponent = React.ComponentType<{ color?: string; size?: number }>;
 
 type InputProps = TextInputProps & {
   label: string;
-  icon: IconComponent;
+  // Opcional: SOBRENOME (Cadastro) e alguns campos do EditarPerfil não
+  // têm ícone no design. O JSX abaixo já tratava isso (`{Icon && ...}`)
+  // — só o tipo aqui não deixava, e travava o typecheck do projeto.
+  icon?: IconComponent;
   secureTextEntry?: boolean;
 };
 

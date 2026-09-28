@@ -22,6 +22,12 @@ export class Usuario {
     @Column({ type: 'varchar', nullable: true })
     senhaQrCode: string;
 
+    // Identificador do link público — não é o "id" sequencial de propósito:
+    // se fosse /publico/42, bastaria trocar o número na URL pra tentar
+    // acessar o cadastro de qualquer outro usuário. UUID não dá pra adivinhar.
+    @Column({ type: 'varchar', unique: true })
+    linkPublicoId: string;
+
     @Column({ type: 'varchar' })
     sexo: 'Masculino' | 'Feminino' | 'Outro';
 

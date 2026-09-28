@@ -8,5 +8,5 @@
   "include": [
     "**/*.ts",
     "**/*.tsx"
-  ]
+, "src/models/perfilPublicoModel.ts", "../backend/src/models/perfilPublico.ts"  ]
 }
