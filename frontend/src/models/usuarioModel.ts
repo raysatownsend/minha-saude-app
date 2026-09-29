@@ -51,6 +51,9 @@ export interface AtualizarPerfilInput {
     sexo?: 'Masculino' | 'Feminino' | 'Outro';
     enderecoCompleto?: string;
     planoSaude?: string;
+    // Usados pelo EditarClinico (o EditarPerfil não manda esses dois).
+    tipoSangue?: TiposSangue;
+    contatoEmergencia?: ContatoEmergencia;
 }
 
 export interface ContatoEmergencia {

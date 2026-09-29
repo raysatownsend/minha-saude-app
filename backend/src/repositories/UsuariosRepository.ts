@@ -117,9 +117,20 @@ export class UsuariosRepository {
 
         // Senha de login não se troca por aqui — ver alterarSenha() logo
         // abaixo, que exige a senha atual antes de aceitar uma nova.
-        const { password, ...demaisDados } = dados;
+        const { password, contatoEmergencia, ...demaisDados } = dados;
 
-        const response = await this.usuariosRep.save({ ...usuario, ...demaisDados, id });
+        const response = await this.usuariosRep.save({
+            ...usuario,
+            ...demaisDados,
+            id,
+            // O contato que chega do app não tem "id" (o DTO não aceita),
+            // e sem id o cascade do TypeORM CRIARIA um contato novo,
+            // deixando o antigo abandonado no banco. Juntando com o
+            // contato atual, o id é mantido e a linha existente é atualizada.
+            contatoEmergencia: contatoEmergencia
+                ? { ...usuario.contatoEmergencia, ...contatoEmergencia }
+                : usuario.contatoEmergencia,
+        });
         return UsuariosRepository.createFromObject(response);
     }
 
