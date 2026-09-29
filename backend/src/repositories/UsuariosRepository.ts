@@ -41,26 +41,36 @@ export class UsuariosRepository {
     }
 
     async definirSenhaPublica(
-    usuarioId: number,
-    senhaPublica: string,
-    senhaLogin?: string,   // 👈 agora é opcional
+        usuarioId: number,
+        senhaPublica: string,
+        senhaLogin?: string,
     ): Promise<void> {
         const usuario = await this.usuariosRep.findOne({ where: { id: usuarioId } });
         if (!usuario) return;
 
-        // Só exige a senha de login quando já existe uma senha pública, ou seja,
-        // quando é uma TROCA. Na primeira definição, o JWT já basta.
-        if (usuario.senhaQrCode) {
-            if (!senhaLogin || !(await bcrypt.compare(senhaLogin, usuario.password))) {
+        const jaTemSenhaPublica = Boolean(usuario.senhaQrCode);
+
+        if (jaTemSenhaPublica) {
+            // Já existe uma senha pública ativa: trocar exige confirmar com a
+            // senha de login. É o que protege de alguém pegar o celular já
+            // logado e mudar sozinho a senha que dá acesso aos dados de saúde.
+            if (!senhaLogin) {
+                throw new UnauthorizedException(
+                    'Confirme com a senha de login para alterar a senha pública.',
+                );
+            }
+            const senhaLoginConfere = await bcrypt.compare(senhaLogin, usuario.password);
+            if (!senhaLoginConfere) {
                 throw new UnauthorizedException('Senha de login incorreta.');
             }
+            if (senhaPublica === senhaLogin) {
+                throw new BadRequestException(
+                    'A senha pública precisa ser diferente da senha de login.',
+                );
+            }
         }
-
-        // Compara com o HASH salvo, não com o que veio na requisição. Assim a
-        // regra funciona mesmo quando senhaLogin não foi enviada.
-        if (await bcrypt.compare(senhaPublica, usuario.password)) {
-            throw new BadRequestException('A senha pública precisa ser diferente da senha de login.');
-        }
+        // Primeiro cadastro (jaTemSenhaPublica === false): já fez login pra
+        // chegar até aqui, então não exige confirmar de novo.
 
         await this.usuariosRep.save({
             ...usuario,
@@ -117,20 +127,9 @@ export class UsuariosRepository {
 
         // Senha de login não se troca por aqui — ver alterarSenha() logo
         // abaixo, que exige a senha atual antes de aceitar uma nova.
-        const { password, contatoEmergencia, ...demaisDados } = dados;
+        const { password, ...demaisDados } = dados;
 
-        const response = await this.usuariosRep.save({
-            ...usuario,
-            ...demaisDados,
-            id,
-            // O contato que chega do app não tem "id" (o DTO não aceita),
-            // e sem id o cascade do TypeORM CRIARIA um contato novo,
-            // deixando o antigo abandonado no banco. Juntando com o
-            // contato atual, o id é mantido e a linha existente é atualizada.
-            contatoEmergencia: contatoEmergencia
-                ? { ...usuario.contatoEmergencia, ...contatoEmergencia }
-                : usuario.contatoEmergencia,
-        });
+        const response = await this.usuariosRep.save({ ...usuario, ...demaisDados, id });
         return UsuariosRepository.createFromObject(response);
     }
 

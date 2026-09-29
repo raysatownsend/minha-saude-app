@@ -7,7 +7,7 @@
 // só, em vez da ficha inteira.
 
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   Ambulance,
@@ -27,7 +27,6 @@ import { listarMedicamentos } from '../repositories/medicamentoRepositorio';
 import { listarDoencas } from '../repositories/doencaRepositorio';
 import { listarCirurgias } from '../repositories/cirurgiaRepositorio';
 import type { Usuario } from '../models/usuarioModel';
-import { mensagemDeErro } from '../services/erroApi';
 
 interface DadosClinicos {
   perfil: Usuario;
@@ -43,16 +42,11 @@ export default function Clinico() {
   const navigation = useNavigation<any>();
   const [dados, setDados] = useState<DadosClinicos | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState('');
 
   useFocusEffect(
     useCallback(() => {
       let ativo = true;
       setCarregando(true);
-      setErro('');
-      // Diagnóstico: aparece no terminal do Expo toda vez que a aba ganha
-      // foco. Pode apagar quando o problema estiver resolvido.
-      if (__DEV__) console.log('[Clinico] aba em foco, buscando dados...');
       Promise.all([
         obterMeuPerfil(),
         listarAlergias(),
@@ -62,7 +56,6 @@ export default function Clinico() {
       ])
         .then(([perfil, alergias, medicamentos, doencas, cirurgias]) => {
           if (!ativo) return;
-          if (__DEV__) console.log('[Clinico] recebido:', perfil.tipoSangue, alergias.length, 'alergia(s)');
           setDados({
             perfil,
             alergias: alergias.map((a) => a.alergia),
@@ -71,11 +64,7 @@ export default function Clinico() {
             cirurgias: cirurgias.map((c) => (c.data ? `${c.cirurgia} (${c.data})` : c.cirurgia)),
           });
         })
-        // Antes o erro só ia pro console e a tela continuava mostrando os
-        // dados ANTIGOS, sem avisar nada. Agora a mensagem aparece na tela.
-        .catch((erroApi) => {
-          if (ativo) setErro(mensagemDeErro(erroApi, 'Não foi possível carregar as informações clínicas.'));
-        })
+        .catch((erro) => console.log('Erro ao carregar dados clínicos:', erro))
         .finally(() => ativo && setCarregando(false));
       return () => {
         ativo = false;
@@ -83,12 +72,10 @@ export default function Clinico() {
     }, []),
   );
 
-  // Sem dados E sem erro = ainda carregando. Antes, se a primeira busca
-  // falhasse, "dados" ficava null pra sempre e o spinner nunca sumia.
-  if (!dados) {
+  if (carregando || !dados) {
     return (
       <SafeAreaView style={[styles.container, styles.centro]}>
-        {erro ? <Text style={styles.erro}>{erro}</Text> : <ActivityIndicator color={colors.primary} />}
+        <ActivityIndicator color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -103,9 +90,6 @@ export default function Clinico() {
           rightLabel="Editar"
           onRightPress={() => navigation.navigate('EditarClinico')}
         />
-
-        {carregando && <ActivityIndicator color={colors.primary} style={styles.atualizando} />}
-        {erro.length > 0 && <Text style={styles.erro}>{erro}</Text>}
 
         <TouchableOpacity
           onPress={() =>
@@ -175,14 +159,5 @@ const styles = StyleSheet.create({
   scroll: {
     padding: 24,
     paddingBottom: 40,
-  },
-  atualizando: {
-    marginBottom: 12,
-  },
-  erro: {
-    color: colors.danger,
-    fontSize: 14,
-    marginBottom: 12,
-    textAlign: 'center',
   },
 });

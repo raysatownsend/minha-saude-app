@@ -11,11 +11,7 @@ export const api = axios.create({
     baseURL: apiUrl,
     timeout: 10000,
     headers: {
-        'Content-Type': 'application/json',
-        // Pede ao iOS para sempre confirmar com o servidor em vez de usar
-        // uma resposta guardada. Junto com o "no-store" que o backend
-        // manda, garante que cada GET traga os dados atuais.
-        'Cache-Control': 'no-cache',
+        'Content-Type': 'application/json'
     },
 });
 
