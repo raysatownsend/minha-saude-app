@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -7,20 +8,26 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import type { AxiosError } from 'axios';
 import { Lock, QrCode } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import Input from '../components/Input';
+import PinInput from '../components/PinInput';
 import AppButton from '../components/AppButton';
 import { colors } from '../../colors';
-import { alterarSenha, definirSenhaPublica } from '../repositories/usuarioRepositorio';
-import { mensagemDeErro } from '../services/erroApi';
+import {
+  alterarSenha,
+  definirSenhaPublica,
+  obterMeuPerfil,
+} from '../repositories/usuarioRepositorio';
 
+const TAMANHO_SENHA_PUBLICA = 5;
 // caracteres sem O/0 e I/1 — evita confundir quem for digitar o
 // código lido em voz alta numa emergência
 const CARACTERES = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-function gerarCodigo(tamanho = 5) {
+function gerarCodigo(tamanho = TAMANHO_SENHA_PUBLICA) {
   let codigo = '';
   for (let i = 0; i < tamanho; i++) {
     codigo += CARACTERES[Math.floor(Math.random() * CARACTERES.length)];
@@ -28,8 +35,20 @@ function gerarCodigo(tamanho = 5) {
   return codigo;
 }
 
+function mensagemDeErro(erro: unknown, padrao: string): string {
+  const status = (erro as AxiosError)?.response?.status;
+  const corpo = (erro as AxiosError)?.response?.data as { message?: string | string[] } | undefined;
+  if (status === 400 || status === 401) {
+    const msg = corpo?.message;
+    if (typeof msg === 'string') return msg;
+    if (Array.isArray(msg) && msg.length > 0) return msg[0];
+  }
+  return padrao;
+}
+
 export default function Senhas() {
   const navigation = useNavigation();
+  const [carregandoPerfil, setCarregandoPerfil] = useState(true);
 
   // --- senha do aplicativo ---
   const [senhaAtual, setSenhaAtual] = useState('');
@@ -70,16 +89,43 @@ export default function Senhas() {
   }
 
   // --- senha pública do QR Code ---
-  const [senhaPublica, setSenhaPublica] = useState(() => gerarCodigo());
+  // Vazia por padrão — antes vinha com um código já sorteado, o que
+  // não deixava claro que dava pra escolher o próprio valor.
+  const [senhaPublica, setSenhaPublica] = useState('');
+  const [temSenhaPublica, setTemSenhaPublica] = useState(false);
   const [senhaLoginConfirmacao, setSenhaLoginConfirmacao] = useState('');
   const [erroSenhaPublica, setErroSenhaPublica] = useState('');
   const [sucessoSenhaPublica, setSucessoSenhaPublica] = useState(false);
   const [salvandoSenhaPublica, setSalvandoSenhaPublica] = useState(false);
 
+  // useFocusEffect: se ela sair pra trocar a senha de login e voltar,
+  // ou definir a senha pública pela 1ª vez e reabrir esta tela depois,
+  // o "já tem senha pública?" reflete o estado atual de verdade.
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+      setCarregandoPerfil(true);
+      obterMeuPerfil()
+        .then((perfil) => ativo && setTemSenhaPublica(perfil.temSenhaPublica))
+        .catch((erro) => console.log('Erro ao carregar perfil:', erro))
+        .finally(() => ativo && setCarregandoPerfil(false));
+      return () => {
+        ativo = false;
+      };
+    }, []),
+  );
+
   async function salvarSenhaPublica() {
     setSucessoSenhaPublica(false);
-    if (!senhaLoginConfirmacao) {
-      setErroSenhaPublica('Confirme com sua senha de login para salvar.');
+    if (senhaPublica.length < TAMANHO_SENHA_PUBLICA) {
+      setErroSenhaPublica('Digite ou gere um código de 5 caracteres.');
+      return;
+    }
+    // Só exige a senha de login se já existir uma senha pública ativa
+    // — no primeiro cadastro, já ter feito login já basta (ver o
+    // mesmo raciocínio no backend, em UsuariosRepository).
+    if (temSenhaPublica && !senhaLoginConfirmacao) {
+      setErroSenhaPublica('Confirme com sua senha de login para alterar a senha pública.');
       return;
     }
 
@@ -88,9 +134,10 @@ export default function Senhas() {
     try {
       await definirSenhaPublica({
         senhaPublica,
-        senhaLogin: senhaLoginConfirmacao,
+        senhaLogin: temSenhaPublica ? senhaLoginConfirmacao : undefined,
       });
       setSenhaLoginConfirmacao('');
+      setTemSenhaPublica(true);
       setSucessoSenhaPublica(true);
     } catch (erro) {
       setErroSenhaPublica(mensagemDeErro(erro, 'Não foi possível salvar a senha pública.'));
@@ -145,45 +192,57 @@ export default function Senhas() {
 
         <Text style={styles.secaoTitulo}>SENHA PÚBLICA DO QR CODE</Text>
 
-        <View style={styles.publicaCard}>
-          <Text style={styles.publicaDescricao}>
-            Essa senha é entregue a quem precisar consultar seus dados em uma
-            emergência.
-          </Text>
-          <View style={styles.codigoLinha}>
-            {/* .split('').join(' ') só coloca um espaço entre cada
-                letra, pra ficar "4 K 7 T 9" em vez de "4K7T9" */}
-            <Text style={styles.codigoTexto}>
-              {senhaPublica.split('').join(' ')}
-            </Text>
-            <TouchableOpacity onPress={() => setSenhaPublica(gerarCodigo())}>
-              <Text style={styles.gerarNovaTexto}>Gerar nova</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {carregandoPerfil ? (
+          <ActivityIndicator color={colors.primary} style={styles.carregandoPerfil} />
+        ) : (
+          <>
+            <View style={styles.publicaCard}>
+              <Text style={styles.publicaDescricao}>
+                {temSenhaPublica
+                  ? 'Essa senha é entregue a quem precisar consultar seus dados em uma emergência.'
+                  : 'Escolha os 5 caracteres que vão liberar sua página de emergência, ou gere um código automático.'}
+              </Text>
 
-        <Input
-          label="CONFIRME COM SUA SENHA DE LOGIN"
-          icon={Lock}
-          value={senhaLoginConfirmacao}
-          onChangeText={setSenhaLoginConfirmacao}
-          secureTextEntry
-        />
+              <PinInput
+                value={senhaPublica}
+                onChangeText={setSenhaPublica}
+                length={TAMANHO_SENHA_PUBLICA}
+              />
 
-        {erroSenhaPublica.length > 0 && <Text style={styles.erro}>{erroSenhaPublica}</Text>}
-        {sucessoSenhaPublica && (
-          <Text style={styles.sucesso}>
-            Senha pública salva — o QR Code já está pronto pra uso.
-          </Text>
+              <TouchableOpacity
+                style={styles.gerarNovaBotao}
+                onPress={() => setSenhaPublica(gerarCodigo())}
+              >
+                <Text style={styles.gerarNovaTexto}>Gerar código automático</Text>
+              </TouchableOpacity>
+            </View>
+
+            {temSenhaPublica && (
+              <Input
+                label="CONFIRME COM SUA SENHA DE LOGIN"
+                icon={Lock}
+                value={senhaLoginConfirmacao}
+                onChangeText={setSenhaLoginConfirmacao}
+                secureTextEntry
+              />
+            )}
+
+            {erroSenhaPublica.length > 0 && <Text style={styles.erro}>{erroSenhaPublica}</Text>}
+            {sucessoSenhaPublica && (
+              <Text style={styles.sucesso}>
+                Senha pública salva — o QR Code já está pronto pra uso.
+              </Text>
+            )}
+
+            <AppButton
+              title={salvandoSenhaPublica ? 'Salvando...' : 'Salvar senha pública'}
+              icon={QrCode}
+              variant="success"
+              onPress={salvarSenhaPublica}
+              disabled={salvandoSenhaPublica}
+            />
+          </>
         )}
-
-        <AppButton
-          title={salvandoSenhaPublica ? 'Salvando...' : 'Salvar senha pública'}
-          icon={QrCode}
-          variant="success"
-          onPress={salvarSenhaPublica}
-          disabled={salvandoSenhaPublica}
-        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -218,32 +277,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: 12,
   },
+  carregandoPerfil: {
+    marginVertical: 20,
+  },
   publicaCard: {
     backgroundColor: colors.card,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
+    alignItems: 'center',
   },
   publicaDescricao: {
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 16,
     lineHeight: 20,
+    textAlign: 'center',
   },
-  codigoLinha: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.infoLight,
-    borderRadius: 999,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-  },
-  codigoTexto: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.primary,
-    letterSpacing: 2,
+  gerarNovaBotao: {
+    marginTop: 16,
   },
   gerarNovaTexto: {
     fontSize: 14,

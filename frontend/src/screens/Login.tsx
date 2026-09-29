@@ -39,8 +39,16 @@ export default function Login() {
     setErro('');
     setCarregando(true);
     try {
-      const { accessToken } = await login({ username: email.trim(), password: senha });
-      await salvarToken(accessToken);
+      const resposta = await login({ username: email.trim(), password: senha });
+      if (__DEV__) {
+        // se o accessToken vier ausente/errado, isso mostra o formato
+        // exato que chegou, em vez de só travar dentro do SecureStore
+        console.log('[login] resposta recebida:', JSON.stringify(resposta));
+      }
+      if (typeof resposta?.accessToken !== 'string' || resposta.accessToken.length === 0) {
+        throw new Error(`Resposta de login sem accessToken válido: ${JSON.stringify(resposta)}`);
+      }
+      await salvarToken(resposta.accessToken);
       // reset() em vez de navigate(): limpa o histórico de navegação,
       // então apertar "voltar" na Home não retorna pro Login.
       navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });

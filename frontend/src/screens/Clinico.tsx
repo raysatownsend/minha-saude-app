@@ -6,9 +6,9 @@
 // saúde" ou "Doenças pré-existentes" abre o detalhe daquele item
 // só, em vez da ficha inteira.
 
-import React from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useCallback, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import {
   Ambulance,
   Building2,
@@ -21,11 +21,66 @@ import {
 import ScreenHeader from '../components/ScreenHeader';
 import InfoRow from '../components/InfoRow';
 import { colors } from '../../colors';
+import { obterMeuPerfil } from '../repositories/usuarioRepositorio';
+import { listarAlergias } from '../repositories/alergiaRepositorio';
+import { listarMedicamentos } from '../repositories/medicamentoRepositorio';
+import { listarDoencas } from '../repositories/doencaRepositorio';
+import { listarCirurgias } from '../repositories/cirurgiaRepositorio';
+import type { Usuario } from '../models/usuarioModel';
+
+interface DadosClinicos {
+  perfil: Usuario;
+  alergias: string[];
+  medicamentos: string[];
+  doencas: string[];
+  cirurgias: string[];
+}
 
 export default function Clinico() {
   // "any" pelo mesmo motivo de sempre: precisa navegar pra fora do
   // Tab.Navigator (EditarClinico, DetalheClinico).
   const navigation = useNavigation<any>();
+  const [dados, setDados] = useState<DadosClinicos | null>(null);
+  const [carregando, setCarregando] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+      setCarregando(true);
+      Promise.all([
+        obterMeuPerfil(),
+        listarAlergias(),
+        listarMedicamentos(),
+        listarDoencas(),
+        listarCirurgias(),
+      ])
+        .then(([perfil, alergias, medicamentos, doencas, cirurgias]) => {
+          if (!ativo) return;
+          setDados({
+            perfil,
+            alergias: alergias.map((a) => a.alergia),
+            medicamentos: medicamentos.map((m) => `${m.medicamento} ${m.dosagem}`),
+            doencas: doencas.map((d) => d.doenca),
+            cirurgias: cirurgias.map((c) => (c.data ? `${c.cirurgia} (${c.data})` : c.cirurgia)),
+          });
+        })
+        .catch((erro) => console.log('Erro ao carregar dados clínicos:', erro))
+        .finally(() => ativo && setCarregando(false));
+      return () => {
+        ativo = false;
+      };
+    }, []),
+  );
+
+  if (carregando || !dados) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centro]}>
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
+
+  const { perfil, alergias, medicamentos, doencas, cirurgias } = dados;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -44,22 +99,22 @@ export default function Clinico() {
           <InfoRow
             icon={Building2}
             title="Plano de saúde"
-            subtitle="Unimed · 0123 4567 8901"
+            subtitle={perfil.planoSaude || 'Não informado'}
           />
         </TouchableOpacity>
 
-        <InfoRow icon={Droplet} title="Tipo sanguíneo" subtitle="O+" />
+        <InfoRow icon={Droplet} title="Tipo sanguíneo" subtitle={perfil.tipoSangue} />
 
         <InfoRow
           icon={Ambulance}
           title="Contato de emergência"
-          subtitle="Marcos Carraro · (51) 99xxx"
+          subtitle={`${perfil.contatoEmergencia.nome} · ${perfil.contatoEmergencia.telefone}`}
         />
 
         <InfoRow
           icon={Syringe}
           title="Cirurgias prévias"
-          subtitle="Apendicectomia (2016)"
+          subtitle={cirurgias.length > 0 ? cirurgias.join(', ') : 'Nenhuma registrada'}
         />
 
         <TouchableOpacity
@@ -72,20 +127,20 @@ export default function Clinico() {
           <InfoRow
             icon={Stethoscope}
             title="Doenças pré-existentes"
-            subtitle="Hipertensão, asma"
+            subtitle={doencas.length > 0 ? doencas.join(', ') : 'Nenhuma registrada'}
           />
         </TouchableOpacity>
 
         <InfoRow
           icon={TriangleAlert}
           title="Alergias a medicamentos"
-          subtitle="Dipirona, penicilina"
+          subtitle={alergias.length > 0 ? alergias.join(', ') : 'Nenhuma conhecida'}
         />
 
         <InfoRow
           icon={Pill}
           title="Medicamentos em uso"
-          subtitle="Losartana 50mg · 1x dia"
+          subtitle={medicamentos.length > 0 ? medicamentos.join(', ') : 'Nenhum registrado'}
         />
       </ScrollView>
     </SafeAreaView>
@@ -96,6 +151,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  centro: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scroll: {
     padding: 24,

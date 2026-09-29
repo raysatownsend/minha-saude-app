@@ -41,18 +41,24 @@ export class UsuariosRepository {
     }
 
     async definirSenhaPublica(
-        usuarioId: number,
-        senhaPublica: string,
-        senhaLogin: string,
+    usuarioId: number,
+    senhaPublica: string,
+    senhaLogin?: string,   // 👈 agora é opcional
     ): Promise<void> {
         const usuario = await this.usuariosRep.findOne({ where: { id: usuarioId } });
         if (!usuario) return;
 
-        const senhaLoginConfere = await bcrypt.compare(senhaLogin, usuario.password);
-        if (!senhaLoginConfere) {
-            throw new UnauthorizedException('Senha de login incorreta.');
+        // Só exige a senha de login quando já existe uma senha pública, ou seja,
+        // quando é uma TROCA. Na primeira definição, o JWT já basta.
+        if (usuario.senhaQrCode) {
+            if (!senhaLogin || !(await bcrypt.compare(senhaLogin, usuario.password))) {
+                throw new UnauthorizedException('Senha de login incorreta.');
+            }
         }
-        if (senhaPublica === senhaLogin) {
+
+        // Compara com o HASH salvo, não com o que veio na requisição. Assim a
+        // regra funciona mesmo quando senhaLogin não foi enviada.
+        if (await bcrypt.compare(senhaPublica, usuario.password)) {
             throw new BadRequestException('A senha pública precisa ser diferente da senha de login.');
         }
 

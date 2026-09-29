@@ -48,8 +48,6 @@ export class UsuariosController {
         if (!excluida) throw new NotFoundException('Usuário não encontrada.');
     }
 
-    // Endpoint dedicado (não faz parte do PUT /me de cima) — ver o
-    // comentário no DefinirSenhaPublicaDto sobre o motivo.
     @Put('me/senha-publica')
     @HttpCode(HttpStatus.NO_CONTENT)
     @UseGuards(JwtAuthGuard)

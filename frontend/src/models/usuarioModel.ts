@@ -17,7 +17,9 @@ export interface Usuario {
 
 export interface DefinirSenhaPublicaInput {
     senhaPublica: string;
-    senhaLogin: string;
+    // Ausente no primeiro cadastro da senha pública — só é preenchida
+    // quando já existe uma e o usuário está trocando (ver Senhas.tsx).
+    senhaLogin?: string;
 }
 
 export interface AlterarSenhaInput {
@@ -38,6 +40,17 @@ export interface NovoUsuarioInput {
     planoSaude?: string;
     contatoEmergencia: ContatoEmergencia;
     tipoSangue: TiposSangue;
+}
+
+// Formato que PUT /usuarios/me aceita — tudo opcional porque é uma
+// atualização parcial (o EditarPerfil só manda os campos que existem
+// nessa tela; sem senha nenhuma, que tem endpoint próprio).
+export interface AtualizarPerfilInput {
+    nome?: string;
+    sobrenome?: string;
+    sexo?: 'Masculino' | 'Feminino' | 'Outro';
+    enderecoCompleto?: string;
+    planoSaude?: string;
 }
 
 export interface ContatoEmergencia {

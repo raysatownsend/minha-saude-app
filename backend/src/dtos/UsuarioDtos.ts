@@ -109,8 +109,8 @@ export class DefinirSenhaPublicaDto {
     senhaPublica: string;
 
     @IsString()
-    @IsNotEmpty()
-    senhaLogin: string;
+    @IsOptional()
+    senhaLogin?: string;
 }
 
 // Trocar a senha de login também merece endpoint próprio, pelo mesmo

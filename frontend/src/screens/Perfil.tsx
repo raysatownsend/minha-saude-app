@@ -4,8 +4,9 @@
 // como Input editável. "Editar" abre o EditarPerfil.tsx. A seção
 // CONTA continua aqui (são links de navegação, não campos de dado).
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -13,16 +14,57 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Calendar, Lock, MapPin, Stethoscope, Trash2, User } from 'lucide-react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { LogOut, Lock, MapPin, Stethoscope, Trash2, User } from 'lucide-react-native';
 import ScreenHeader from '../components/ScreenHeader';
 import InfoRow from '../components/InfoRow';
 import { colors } from '../../colors';
+import { obterMeuPerfil } from '../repositories/usuarioRepositorio';
+import { removerToken } from '../services/tokenStorage';
+import type { Usuario } from '../models/usuarioModel';
+
+function iniciais(nome: string, sobrenome: string): string {
+  return `${nome.charAt(0)}${sobrenome.charAt(0)}`.toUpperCase();
+}
 
 export default function Perfil() {
   // "any" pelo mesmo motivo de sempre: precisa navegar pra fora do
-  // Tab.Navigator (EditarPerfil, Medicos, Senhas, ExcluirConta).
+  // Tab.Navigator (EditarPerfil, Medicos, Senhas, ExcluirConta, Login).
   const navigation = useNavigation<any>();
+  const [perfil, setPerfil] = useState<Usuario | null>(null);
+  const [carregando, setCarregando] = useState(true);
+
+  // useFocusEffect, não useEffect: assim, voltar de "Editar perfil" já
+  // recarrega os dados novos, sem precisar de um gerenciador de estado
+  // global só pra isso — mesmo padrão já usado na tela do QR Code.
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+      setCarregando(true);
+      obterMeuPerfil()
+        .then((dados) => ativo && setPerfil(dados))
+        .catch((erro) => console.log('Erro ao carregar perfil:', erro))
+        .finally(() => ativo && setCarregando(false));
+      return () => {
+        ativo = false;
+      };
+    }, []),
+  );
+
+  async function sair() {
+    await removerToken();
+    // reset(), não navigate(): sem isso, "voltar" no Login retornaria
+    // pro app mesmo sem token nenhum salvo.
+    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+  }
+
+  if (carregando || !perfil) {
+    return (
+      <SafeAreaView style={[styles.container, styles.centro]}>
+        <ActivityIndicator color={colors.primary} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -34,22 +76,15 @@ export default function Perfil() {
         />
 
         <View style={styles.avatar}>
-          <Text style={styles.avatarTexto}>RC</Text>
+          <Text style={styles.avatarTexto}>{iniciais(perfil.nome, perfil.sobrenome)}</Text>
         </View>
-        <Text style={styles.nomeCompleto}>Raysa Carraro</Text>
-        <Text style={styles.email}>raysa@email.com</Text>
+        <Text style={styles.nomeCompleto}>
+          {perfil.nome} {perfil.sobrenome}
+        </Text>
+        <Text style={styles.email}>{perfil.username}</Text>
 
-        <InfoRow icon={User} title="Sexo" subtitle="Feminino" />
-        <InfoRow
-          icon={Calendar}
-          title="Data de nascimento"
-          subtitle="14/02/1988"
-        />
-        <InfoRow
-          icon={MapPin}
-          title="Endereço"
-          subtitle="Rua das Acácias, 210 · Porto Alegre"
-        />
+        <InfoRow icon={User} title="Sexo" subtitle={perfil.sexo} />
+        <InfoRow icon={MapPin} title="Endereço" subtitle={perfil.enderecoCompleto} />
 
         <Text style={styles.secaoTitulo}>CONTA</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Medicos')}>
@@ -73,6 +108,9 @@ export default function Perfil() {
             subtitle="Apagar dados permanentemente"
           />
         </TouchableOpacity>
+        <TouchableOpacity onPress={sair}>
+          <InfoRow icon={LogOut} title="Sair" subtitle="Encerrar sessão neste aparelho" />
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -82,6 +120,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  centro: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scroll: {
     padding: 24,
