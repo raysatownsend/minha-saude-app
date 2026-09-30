@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AxiosError } from 'axios';
 import { Fingerprint, Lock, Mail } from 'lucide-react-native';
@@ -17,12 +18,14 @@ import { colors } from '../../colors';
 import type { RootStackParamList } from '../navigation/types';
 import { login } from '../repositories/authRepositorio';
 import { salvarToken } from '../services/tokenStorage';
+import { mensagemDeErro } from '../services/erroApi';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function Login() {
   const navigation = useNavigation<Nav>();
-  const [email, setEmail] = useState('');
+  const { params } = useRoute<RouteProp<RootStackParamList, 'Login'>>();
+  const [email, setEmail] = useState(params?.username ?? '');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(false);
@@ -36,8 +39,16 @@ export default function Login() {
     setErro('');
     setCarregando(true);
     try {
-      const { accessToken } = await login({ username: email.trim(), password: senha });
-      await salvarToken(accessToken);
+      const resposta = await login({ username: email.trim(), password: senha });
+      if (__DEV__) {
+        // se o accessToken vier ausente/errado, isso mostra o formato
+        // exato que chegou, em vez de só travar dentro do SecureStore
+        console.log('[login] resposta recebida:', JSON.stringify(resposta));
+      }
+      if (typeof resposta?.accessToken !== 'string' || resposta.accessToken.length === 0) {
+        throw new Error(`Resposta de login sem accessToken válido: ${JSON.stringify(resposta)}`);
+      }
+      await salvarToken(resposta.accessToken);
       // reset() em vez de navigate(): limpa o histórico de navegação,
       // então apertar "voltar" na Home não retorna pro Login.
       navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] });
@@ -48,7 +59,7 @@ export default function Login() {
       setErro(
         status === 401
           ? 'Usuário ou senha inválidos.'
-          : 'Não foi possível entrar. Tente novamente.',
+          : mensagemDeErro(erroApi, 'Não foi possível entrar. Tente novamente.'),
       );
     } finally {
       setCarregando(false);
@@ -81,6 +92,9 @@ export default function Login() {
         secureTextEntry
       />
 
+      {params?.contaCriada && (
+        <Text style={styles.sucesso}>Conta criada! Entre com a senha que você acabou de definir.</Text>
+      )}
       {erro.length > 0 && <Text style={styles.erro}>{erro}</Text>}
 
       <TouchableOpacity onPress={() => navigation.navigate('RecuperarSenha')}>
@@ -144,6 +158,11 @@ const styles = StyleSheet.create({
   },
   erro: {
     color: colors.danger,
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  sucesso: {
+    color: colors.success,
     fontSize: 13,
     marginBottom: 12,
   },

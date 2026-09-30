@@ -99,7 +99,11 @@ export class AtualizarUsuarioDto {
 // Fica separado do AtualizarUsuarioDto de propósito: misturar "trocar
 // endereço" com "definir a senha que libera meus dados de saúde pra
 // qualquer um com o link" no mesmo endpoint tornaria fácil demais mudar
-// essa senha sem querer. Por isso exige a senha de login pra confirmar.
+// essa senha sem querer.
+//
+// senhaLogin é opcional aqui: só é exigida quando já existe uma senha
+// pública cadastrada (ver UsuariosRepository.definirSenhaPublica) — no
+// primeiro cadastro, já ter feito login é confirmação suficiente.
 export class DefinirSenhaPublicaDto {
     // Exatamente 5 — não "no mínimo": o código é gerado pelo app (tela
     // Senhas) e digitado em 5 caixinhas na página pública (PinInput).
@@ -108,9 +112,9 @@ export class DefinirSenhaPublicaDto {
     @Length(5, 5, { message: 'A senha pública deve ter exatamente 5 caracteres.' })
     senhaPublica: string;
 
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    senhaLogin: string;
+    senhaLogin?: string;
 }
 
 // Trocar a senha de login também merece endpoint próprio, pelo mesmo

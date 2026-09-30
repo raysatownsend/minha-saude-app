@@ -43,18 +43,34 @@ export class UsuariosRepository {
     async definirSenhaPublica(
         usuarioId: number,
         senhaPublica: string,
-        senhaLogin: string,
+        senhaLogin?: string,
     ): Promise<void> {
         const usuario = await this.usuariosRep.findOne({ where: { id: usuarioId } });
         if (!usuario) return;
 
-        const senhaLoginConfere = await bcrypt.compare(senhaLogin, usuario.password);
-        if (!senhaLoginConfere) {
-            throw new UnauthorizedException('Senha de login incorreta.');
+        const jaTemSenhaPublica = Boolean(usuario.senhaQrCode);
+
+        if (jaTemSenhaPublica) {
+            // Já existe uma senha pública ativa: trocar exige confirmar com a
+            // senha de login. É o que protege de alguém pegar o celular já
+            // logado e mudar sozinho a senha que dá acesso aos dados de saúde.
+            if (!senhaLogin) {
+                throw new UnauthorizedException(
+                    'Confirme com a senha de login para alterar a senha pública.',
+                );
+            }
+            const senhaLoginConfere = await bcrypt.compare(senhaLogin, usuario.password);
+            if (!senhaLoginConfere) {
+                throw new UnauthorizedException('Senha de login incorreta.');
+            }
+            if (senhaPublica === senhaLogin) {
+                throw new BadRequestException(
+                    'A senha pública precisa ser diferente da senha de login.',
+                );
+            }
         }
-        if (senhaPublica === senhaLogin) {
-            throw new BadRequestException('A senha pública precisa ser diferente da senha de login.');
-        }
+        // Primeiro cadastro (jaTemSenhaPublica === false): já fez login pra
+        // chegar até aqui, então não exige confirmar de novo.
 
         await this.usuariosRep.save({
             ...usuario,
@@ -63,14 +79,12 @@ export class UsuariosRepository {
     }
 
     async removerSenhaPublica(usuarioId: number): Promise<void> {
-        const usuario = await this.usuariosRep.findOne({ where: { id: usuarioId } });
-        if (!usuario) return;
-
-        // undefined (em vez de deletar o registro inteiro) é o suficiente
-        // pra revogar: sem hash salvo, nenhuma senha digitada confere, e
-        // conta + dados clínicos continuam intactos — como o Cenário 1
-        // da story de excluir o link exige.
-        await this.usuariosRep.save({ ...usuario, senhaQrCode: undefined });
+        // NULL (não undefined!): o save() do TypeORM ignora propriedades
+        // undefined, então a versão anterior desse método "revogava" sem
+        // apagar nada — o link continuava funcionando com a senha antiga.
+        // Sem hash salvo, nenhuma senha digitada confere, e conta + dados
+        // clínicos continuam intactos (Cenário 1 da story de excluir o link).
+        await this.usuariosRep.update({ id: usuarioId }, { senhaQrCode: null });
     }
 
     async alterarSenha(usuarioId: number, senhaAtual: string, novaSenha: string): Promise<void> {

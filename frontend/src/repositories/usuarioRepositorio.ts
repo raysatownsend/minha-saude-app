@@ -1,5 +1,5 @@
 import { api } from './api';
-import { AlterarSenhaInput, DefinirSenhaPublicaInput, NovoUsuarioInput, Usuario } from '../models/usuarioModel';
+import { AlterarSenhaInput, AtualizarPerfilInput, DefinirSenhaPublicaInput, NovoUsuarioInput, Usuario } from '../models/usuarioModel';
 
 export async function cadastrar(dados: NovoUsuarioInput): Promise<Usuario> {
   const resposta = await api.post<Usuario>('/usuarios', dados);
@@ -8,6 +8,11 @@ export async function cadastrar(dados: NovoUsuarioInput): Promise<Usuario> {
 
 export async function obterMeuPerfil(): Promise<Usuario> {
   const resposta = await api.get<Usuario>('/usuarios/me');
+  return resposta.data;
+}
+
+export async function atualizarPerfil(dados: AtualizarPerfilInput): Promise<Usuario> {
+  const resposta = await api.put<Usuario>('/usuarios/me', dados);
   return resposta.data;
 }
 

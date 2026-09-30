@@ -33,6 +33,13 @@ export default function AppButton({
     <TouchableOpacity
       style={[styles.base, v.container, disabled && styles.desabilitado, style]}
       activeOpacity={0.8}
+      // `disabled` sai das props lá em cima só pra poder apagar o botão
+      // (styles.desabilitado). Se ele não for repassado aqui, o botão
+      // FICA COM CARA de desabilitado mas continua aceitando toque — o
+      // que deixava enviar o formulário duas vezes e mandar PIN incompleto.
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
       {...touchableProps}
     >
       {Icon && <Icon color={v.text.color} size={20} />}

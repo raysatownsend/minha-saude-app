@@ -4,23 +4,23 @@
 // (é a primeira tela com gradiente de verdade, não cor sólida) —
 // instala com: npx expo install expo-linear-gradient
 
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import {
+  ActivityIndicator,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Bell,
   Building2,
-  Calendar,
   Droplet,
-  FileText,
   Pill,
+  QrCode,
   ShieldCheck,
   Stethoscope,
   TriangleAlert,
@@ -28,6 +28,22 @@ import {
 import StatCard from '../components/StatCard';
 import InfoRow from '../components/InfoRow';
 import { colors } from '../../colors';
+import { obterMeuPerfil } from '../repositories/usuarioRepositorio';
+import { listarAlergias } from '../repositories/alergiaRepositorio';
+import { listarMedicamentos } from '../repositories/medicamentoRepositorio';
+import { listarDoencas } from '../repositories/doencaRepositorio';
+import type { Usuario } from '../models/usuarioModel';
+
+interface ResumoHome {
+  perfil: Usuario;
+  alergias: number;
+  medicamentos: number;
+  doencas: string[];
+}
+
+function iniciais(nome: string, sobrenome: string): string {
+  return `${nome.charAt(0)}${sobrenome.charAt(0)}`.toUpperCase();
+}
 
 export default function Home() {
   // "any" aqui é um atalho consciente: a Home mora dentro do
@@ -37,6 +53,40 @@ export default function Home() {
   // (CompositeNavigationProp) — mais TypeScript avançado do que
   // vale a pena agora.
   const navigation = useNavigation<any>();
+  const [resumo, setResumo] = useState<ResumoHome | null>(null);
+  const [carregando, setCarregando] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let ativo = true;
+      setCarregando(true);
+      Promise.all([obterMeuPerfil(), listarAlergias(), listarMedicamentos(), listarDoencas()])
+        .then(([perfil, alergias, medicamentos, doencas]) => {
+          if (!ativo) return;
+          setResumo({
+            perfil,
+            alergias: alergias.length,
+            medicamentos: medicamentos.length,
+            doencas: doencas.map((d) => d.doenca),
+          });
+        })
+        .catch((erro) => console.log('Erro ao carregar a Home:', erro))
+        .finally(() => ativo && setCarregando(false));
+      return () => {
+        ativo = false;
+      };
+    }, []),
+  );
+
+  if (carregando || !resumo) {
+    return (
+      <View style={[styles.container, styles.centro]}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
+
+  const { perfil, alergias, medicamentos, doencas } = resumo;
 
   return (
     <View style={styles.container}>
@@ -49,26 +99,40 @@ export default function Home() {
         >
           <View style={styles.headerTopo}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarTexto}>RC</Text>
+              <Text style={styles.avatarTexto}>{iniciais(perfil.nome, perfil.sobrenome)}</Text>
             </View>
             <View style={styles.saudacao}>
               <Text style={styles.ola}>Olá,</Text>
-              <Text style={styles.nome}>Raysa Carraro</Text>
+              <Text style={styles.nome}>
+                {perfil.nome} {perfil.sobrenome}
+              </Text>
             </View>
             <TouchableOpacity>
               <Bell color={colors.textPrimary} size={24} />
             </TouchableOpacity>
           </View>
 
-          <View style={styles.perfilCard}>
+          {/* Antes mostrava um "85% completo" fixo — número que eu não
+              tinha como calcular de verdade. Isso aqui é real: reflete
+              se a senha pública (a base do QR Code de emergência) já
+              está configurada ou não. */}
+          <TouchableOpacity
+            style={styles.perfilCard}
+            onPress={() => !perfil.temSenhaPublica && navigation.navigate('Senhas')}
+          >
             <View style={styles.perfilInfo}>
-              <ShieldCheck color={colors.textPrimary} size={20} />
+              {perfil.temSenhaPublica ? (
+                <ShieldCheck color={colors.textPrimary} size={20} />
+              ) : (
+                <QrCode color={colors.textPrimary} size={20} />
+              )}
               <Text style={styles.perfilTexto}>
-                Perfil de saúde 85% completo
+                {perfil.temSenhaPublica
+                  ? 'QR Code de emergência configurado'
+                  : 'Configure sua senha pública para gerar o QR Code'}
               </Text>
             </View>
-            <Text style={styles.perfilPercentual}>85%</Text>
-          </View>
+          </TouchableOpacity>
         </LinearGradient>
 
         <View style={styles.corpo}>
@@ -78,14 +142,14 @@ export default function Home() {
               iconColor={colors.danger}
               iconBg={colors.dangerLight}
               label="Tipo sanguíneo"
-              value="O+"
+              value={perfil.tipoSangue}
             />
             <StatCard
-              icon={Calendar}
+              icon={Building2}
               iconColor={colors.primary}
               iconBg={colors.infoLight}
-              label="Idade"
-              value="38 anos"
+              label="Plano de saúde"
+              value={perfil.planoSaude || 'Não informado'}
             />
           </View>
           <View style={styles.grade}>
@@ -94,14 +158,14 @@ export default function Home() {
               iconColor={colors.warning}
               iconBg={colors.warningLight}
               label="Alergias"
-              value="2 registradas"
+              value={alergias === 1 ? '1 registrada' : `${alergias} registradas`}
             />
             <StatCard
               icon={Pill}
               iconColor={colors.success}
               iconBg={colors.successLight}
               label="Medicamentos"
-              value="3 em uso"
+              value={medicamentos === 1 ? '1 em uso' : `${medicamentos} em uso`}
             />
           </View>
 
@@ -115,7 +179,7 @@ export default function Home() {
             <InfoRow
               icon={Building2}
               title="Plano de saúde"
-              subtitle="Unimed · Plano Pleno"
+              subtitle={perfil.planoSaude || 'Não informado'}
             />
           </TouchableOpacity>
           <TouchableOpacity
@@ -128,16 +192,13 @@ export default function Home() {
             <InfoRow
               icon={Stethoscope}
               title="Doenças pré-existentes"
-              subtitle="Hipertensão, asma"
+              subtitle={doencas.length > 0 ? doencas.join(', ') : 'Nenhuma registrada'}
             />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => navigation.navigate('Exames')}>
-            <InfoRow
-              icon={FileText}
-              title="Exames anexados"
-              subtitle="4 PDFs · atualizado hoje"
-            />
-          </TouchableOpacity>
+          {/* "Exames anexados" saiu daqui: essa funcionalidade ainda não
+              foi construída (não existe endpoint nem tela funcionando
+              pra upload de PDF) — mostrar um número aqui seria inventar
+              dado de novo, exatamente o problema que essa tela tinha. */}
         </View>
       </ScrollView>
     </View>
@@ -148,6 +209,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  centro: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scroll: {
     flexGrow: 1,
@@ -207,11 +272,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.textPrimary,
     flexShrink: 1,
-  },
-  perfilPercentual: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.primary,
   },
   corpo: {
     padding: 24,

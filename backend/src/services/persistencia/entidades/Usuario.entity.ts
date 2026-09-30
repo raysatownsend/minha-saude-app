@@ -19,8 +19,10 @@ export class Usuario {
     @Column({ name: 'password', type: 'varchar' })
     password: string;
 
+    // string | null (e não só string): revogar o link = gravar NULL aqui.
+    // O TypeORM ignora `undefined` no save() — só `null` limpa a coluna.
     @Column({ type: 'varchar', nullable: true })
-    senhaQrCode: string;
+    senhaQrCode: string | null;
 
     // Identificador do link público — não é o "id" sequencial de propósito:
     // se fosse /publico/42, bastaria trocar o número na URL pra tentar
@@ -34,7 +36,7 @@ export class Usuario {
     @Column({ type: 'varchar' })
     enderecoCompleto: string;
 
-    @Column({ type: 'varchar' })
+    @Column({ type: 'varchar', nullable: true })
     planoSaude: string;
 
     @OneToOne(() => ContatoEmergencia, (contatoEmergencia) => contatoEmergencia.usuario, {
